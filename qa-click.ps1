@@ -1,4 +1,4 @@
-param([int]$X,[int]$Y,[long]$Handle=0,[double]$RatioX=0,[double]$RatioY=0)
+param([int]$X,[int]$Y,[long]$Handle=0,[double]$RatioX=0,[double]$RatioY=0,[ValidateSet('left','right')][string]$Button='left')
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
@@ -48,8 +48,10 @@ try {
  [PetMouseQA]::GetCursorPos([ref]$probePoint) | Out-Null
  $nativeTarget = [PetMouseQA]::GetAncestor([PetMouseQA]::WindowFromPoint($probePoint),2)
  [PetMouseQA]::SetCursorPos($X,$Y) | Out-Null
- [PetMouseQA]::mouse_event(2,0,0,0,[UIntPtr]::Zero)
- [PetMouseQA]::mouse_event(4,0,0,0,[UIntPtr]::Zero)
+ $downFlag=if($Button -eq 'right'){8}else{2}
+ $upFlag=if($Button -eq 'right'){16}else{4}
+ [PetMouseQA]::mouse_event($downFlag,0,0,0,[UIntPtr]::Zero)
+ [PetMouseQA]::mouse_event($upFlag,0,0,0,[UIntPtr]::Zero)
  Write-Output ('target=' + $nativeTarget.ToInt64() + ';x=' + $probePoint.X + ';y=' + $probePoint.Y+';visible='+$rootVisible+';region='+$regionResult+';inside='+$insideRegion+';style='+$extendedStyle+';cloaked='+$cloaked)
  Start-Sleep -Milliseconds 100
 } finally { [PetMouseQA]::SetCursorPos($previousPoint.X,$previousPoint.Y) | Out-Null }

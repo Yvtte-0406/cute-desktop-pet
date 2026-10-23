@@ -30,6 +30,17 @@ module.exports=async function verify(win){
  for(let i=0;i<9;i++)fs.writeFileSync(path.join(__dirname,'assets','layers','tail-'+String(i+1).padStart(2,'0')+'.png'),Buffer.from(tailImages[i],'base64'));
  const preferences=await evaluate(`(async()=>{const original=await petAPI.getPreferences();const small=await petAPI.setScale(.75);const loaded=await petAPI.getPreferences();const large=await petAPI.setScale(1.25);await petAPI.setScale(original.scale);return {small:small.scale,loaded:loaded.scale,large:large.scale,restored:original.scale};})()`);
  if(preferences.small!==.75||preferences.loaded!==.75||preferences.large<=preferences.small)throw Error('桌宠大小调整或保存失败');
+ const todoUI=await evaluate(`(async()=>{
+  petQA.openMenu('todos');document.getElementById('task').value='报告 <不要作为HTML>';document.getElementById('deadline').value='2026-10-24T18:30';document.getElementById('form').requestSubmit();await new Promise(r=>setTimeout(r,150));
+  const saved=await petAPI.readTasks(),li=document.querySelector('#tasks li');
+  const result={textSaved:saved[0]?.text==='报告 <不要作为HTML>',deadlineSaved:Boolean(saved[0]?.deadline),deleteOnly:li.querySelectorAll('button').length===1&&!li.querySelector('input'),deadlineShown:Boolean(li.querySelector('time')),safeText:!li.querySelector('img,script'),reminderInTodos:document.querySelector('[data-content="todos"]').contains(document.getElementById('reminders')),onlyThreeIcons:document.querySelectorAll('#orbit button').length===3};
+  await petAPI.setReminders(false);await petAPI.setScale(.6);result.preferencePreserved=(await petAPI.getPreferences()).reminders===false;await petAPI.setReminders(true);await petAPI.setScale(${preferences.restored});
+  petQA.closeMenus();petQA.setState('idle');petQA.resetReminderClock(0);result.noEarlyReminder=petQA.pollReminders(1799999)==='';result.remindsAt30min=petQA.pollReminders(1800000).includes('报告');
+  petQA.openMenu('todos');return result;
+ })()`);
+ if(Object.values(todoUI).some(v=>!v))throw Error('待办界面或30分钟提醒失败：'+JSON.stringify(todoUI));
+ await sleep(150);fs.writeFileSync(path.join(out,'todos-menu.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate(`(async()=>{document.querySelector('#tasks li button').click();await new Promise(r=>setTimeout(r,120));if((await petAPI.readTasks()).length)throw Error('删除待办失败');petQA.closeMenus();petQA.setState('idle');})()`);
  const blinkCoverage=[],faceFrames=[];
  for(const blink of [0,.25,.5,.75,1]){
   await evaluate(`window.petQA.freeze({time:0,blink:${blink},pet:0,lift:0,head:0,earLeft:0,earRight:0,breath:0,bodyY:0,sway:0,mouth:0})`);
@@ -74,7 +85,7 @@ module.exports=async function verify(win){
  const hits=await evaluate(`(()=>{const r=document.getElementById('pet').getBoundingClientRect();return {transparent:petQA.hitTest(r.x+2,r.y+2),fox:petQA.hitTest(r.x+r.width*451/720,r.y+r.height*390/620)};})()`);
  if(hits.transparent||!hits.fox)throw Error('狐狸轮廓点击判断失败');
  const video=await evaluate('window.petQA.record()');fs.writeFileSync(path.join(out,'animation-preview.webm'),Buffer.from(video,'base64'));
- const report={interaction,preferences,menu,hits,continuousAnimation:{textureUploads,tailCount:tailImages.length,sourceFidelity,blinkCoverage,faceStability,liftedEdges},performance:await evaluate('window.petQA.snapshot()')};
+ const report={interaction,preferences,todoUI,menu,hits,continuousAnimation:{textureUploads,tailCount:tailImages.length,sourceFidelity,blinkCoverage,faceStability,liftedEdges},performance:await evaluate('window.petQA.snapshot()')};
  fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify(report,null,2));
  if(!interaction.click||!interaction.lift||!interaction.release||report.performance.errors.length)throw Error('交互检查失败');
 };
