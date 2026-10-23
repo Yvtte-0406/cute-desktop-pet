@@ -1,0 +1,3 @@
+const {test}=require('node:test');const assert=require('node:assert/strict');const {sizedBounds}=require('./sizing.cjs');
+test('resizing holds the bottom anchor and remains within the display',()=>{const a={x:0,y:0,width:1920,height:1040},old={x:1400,y:400,width:440,height:580};const s=sizedBounds(.75,a,old);assert.equal(s.bounds.y+s.bounds.height,980);assert.equal(s.bounds.x+s.bounds.width/2,1620);assert.equal(s.scale,.75);});
+test('large sizes fit the available work area on a second display',()=>{const a={x:-1280,y:0,width:1280,height:720};const s=sizedBounds(1.5,a,{x:-100,y:500,width:440,height:580});assert(s.bounds.x>=a.x);assert(s.bounds.x+s.bounds.width<=0);assert(s.bounds.y+s.bounds.height<=720);assert(s.scale<1.5);});
