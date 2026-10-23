@@ -1,0 +1,35 @@
+const {app,BrowserWindow,ipcMain,screen,Tray,Menu,nativeImage}=require('electron');
+const fs=require('node:fs');const path=require('node:path');
+const {sizedBounds}=require('./sizing.cjs');
+// Keep Chromium's GPU compositor enabled for smooth animation.
+if(process.argv.includes('--qa')){const qaProfile=path.join(__dirname,'qa','profile');fs.mkdirSync(qaProfile,{recursive:true});app.setPath('userData',qaProfile);}
+let win,tray,dragTimer,dragOrigin; const preview=process.argv.includes('--preview'),qa=process.argv.includes('--qa');
+let menuState={open:false,details:false},hitTimer,hitId=0,ignoreState=false,shapeEnabled=false;
+function applyWindowScale(scale){
+ const old=win.getBounds(),area=screen.getDisplayMatching(old).workArea,result=sizedBounds(scale,area,old);
+ if(!preview){const petHeight=440*result.scale*620/720;const width=menuState.open?Math.max(340,result.bounds.width):result.bounds.width;const height=Math.min(area.height,Math.max(result.bounds.height,menuState.details?petHeight+460:menuState.open?petHeight+150:0));const bounds={width:Math.round(width),height:Math.round(height),x:Math.round(Math.max(area.x,Math.min(area.x+area.width-width,old.x+old.width/2-width/2))),y:Math.round(Math.max(area.y,Math.min(area.y+area.height-height,old.y+old.height-height)))};win.setBounds(bounds);}
+ return result;
+}
+function ignoreMouse(ignore){if(preview||!win||win.isDestroyed()||ignore===ignoreState)return;ignoreState=ignore;win.setIgnoreMouseEvents(ignore,{forward:true});}
+function startHitTesting(){if(preview)return;hitTimer=setInterval(()=>{if(!win||win.isDestroyed()||!win.isVisible())return;if(dragTimer){ignoreMouse(false);return;}const p=screen.getCursorScreenPoint(),b=win.getContentBounds();if(p.x<b.x||p.x>=b.x+b.width||p.y<b.y||p.y>=b.y+b.height){ignoreMouse(true);return;}win.webContents.send('hit:probe',{id:++hitId,x:p.x-b.x,y:p.y-b.y});},16);}
+ipcMain.on('hit:result',(e,result)=>{if(shapeEnabled||e.sender!==win?.webContents||!result||result.id<hitId-3||dragTimer)return;ignoreMouse(!result.interactive);});
+ipcMain.on('window:shape',(e,rects)=>{if(preview||e.sender!==win?.webContents||!Array.isArray(rects)||rects.length>15000)return;const valid=rects.filter(r=>[r.x,r.y,r.width,r.height].every(Number.isInteger)&&r.width>0&&r.height>0);if(valid.length){shapeEnabled=true;clearInterval(hitTimer);ignoreMouse(false);win.setShape(valid);}});
+ipcMain.on('menu:state',(e,state)=>{if(e.sender!==win?.webContents||!state)return;menuState={open:Boolean(state.open),details:Boolean(state.details)};if(!preview)applyWindowScale(readPreferences().scale);});
+const dataFile=()=>path.join(app.getPath('userData'),'todos.json');
+const preferencesFile=()=>path.join(app.getPath('userData'),'preferences.json');
+function readPreferences(){try{const value=JSON.parse(fs.readFileSync(preferencesFile(),'utf8'));return {scale:Number.isFinite(value.scale)?Math.max(.6,Math.min(1.5,value.scale)):1};}catch(e){if(e.code==='ENOENT')return {scale:1};throw e;}}
+ipcMain.handle('preferences:read',()=>readPreferences());
+ipcMain.handle('preferences:scale',(_,scale)=>{
+ if(!Number.isFinite(scale))throw Error('大小必须为有效数值');
+ stopDrag();const result=applyWindowScale(scale);
+ fs.mkdirSync(path.dirname(preferencesFile()),{recursive:true});fs.writeFileSync(preferencesFile()+'.tmp',JSON.stringify({scale:result.scale}));fs.renameSync(preferencesFile()+'.tmp',preferencesFile());
+ return {scale:result.scale,maxScale:result.maxScale};
+});
+function stopDrag(){clearInterval(dragTimer);dragTimer=null;}
+function readTasks(){try{return JSON.parse(fs.readFileSync(dataFile(),'utf8'));}catch(e){if(e.code==='ENOENT')return [];throw e;}}
+ipcMain.handle('tasks:read',()=>readTasks());
+ipcMain.handle('tasks:save',(_,items)=>{if(!Array.isArray(items)||items.length>500||items.some(x=>typeof x.id!=='string'||typeof x.text!=='string'||x.text.length>500||typeof x.done!=='boolean'))throw Error('待办格式不正确');fs.mkdirSync(path.dirname(dataFile()),{recursive:true});fs.writeFileSync(dataFile()+'.tmp',JSON.stringify(items,null,2),'utf8');fs.renameSync(dataFile()+'.tmp',dataFile());});
+ipcMain.on('drag:start',()=>{if(preview||qa)return;stopDrag();const p=screen.getCursorScreenPoint(),b=win.getBounds();dragOrigin={x:p.x,y:p.y,wx:b.x,wy:b.y};dragTimer=setInterval(()=>{if(win.isDestroyed())return stopDrag();const q=screen.getCursorScreenPoint();win.setPosition(dragOrigin.wx+q.x-dragOrigin.x,dragOrigin.wy+q.y-dragOrigin.y);},16);});
+ipcMain.on('drag:stop',stopDrag);ipcMain.on('app:quit',()=>app.quit());
+app.whenReady().then(async()=>{const area=screen.getPrimaryDisplay().workArea;win=new BrowserWindow({width:preview?860:440,height:preview?820:580,x:area.x+area.width-460,y:area.y+area.height-600,transparent:!preview,frame:preview,resizable:preview,alwaysOnTop:!preview,skipTaskbar:!preview,backgroundColor:preview?'#eae5df':'#00000000',webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true,backgroundThrottling:false}});win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',e=>e.preventDefault());win.on('blur',()=>{stopDrag();win.webContents.send('drag:cancel');});win.on('closed',stopDrag);if(!preview){const configured=sizedBounds(readPreferences().scale,area,win.getBounds());win.setBounds(configured.bounds);}await win.loadFile('index.html',{query:{preview:String(preview),qa:String(qa)}});startHitTesting();tray=new Tray(nativeImage.createFromPath(path.join(__dirname,'assets','fox.png')).resize({width:32,height:32}));tray.setToolTip('白狐陪你工作');tray.setContextMenu(Menu.buildFromTemplate([{label:'显示桌宠',click:()=>win.show()},{label:'退出',click:()=>app.quit()}]));if(qa){for(let i=0;i<200;i++){if(await win.webContents.executeJavaScript('Boolean(window.petQA?.snapshot().ready)'))break;await new Promise(r=>setTimeout(r,100));}if(process.argv.includes('--native-hit')){await require('./verify-native.cjs')(win,()=>({ignoreState,hitId,preview,bounds:win.getContentBounds()}));app.quit();return;}const out=path.join(__dirname,'qa');fs.mkdirSync(out,{recursive:true});const results=[];for(const state of ['idle','talk','pet','lift']){await win.webContents.executeJavaScript(`window.petQA.setState('${state}')`);await new Promise(r=>setTimeout(r,700));fs.writeFileSync(path.join(out,state+'.png'),(await win.webContents.capturePage()).toPNG());results.push(await win.webContents.executeJavaScript('window.petQA.snapshot()'));}await win.webContents.executeJavaScript("window.petQA.setState('idle')");await new Promise(r=>setTimeout(r,3500));fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({states:results,performance:await win.webContents.executeJavaScript('window.petQA.snapshot()')},null,2));await require('./verify.cjs')(win);app.quit();}}).catch(error=>{if(qa){fs.mkdirSync(path.join(__dirname,'qa'),{recursive:true});fs.writeFileSync(path.join(__dirname,'qa','last-error.txt'),error.stack||String(error));}app.exit(1);});
+app.on('window-all-closed',()=>app.quit());app.on('before-quit',()=>{stopDrag();clearInterval(hitTimer);});

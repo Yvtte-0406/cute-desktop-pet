@@ -1,0 +1,16 @@
+{
+  "name": "white-fox-desktop-pet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "本地静音白狐桌宠",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "preview": "electron . --preview",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check renderer.js && node --check rig.js && node --check motion.js",
+    "test": "node --test motion.test.cjs sizing.test.cjs"
+  },
+  "devDependencies": {
+    "electron": "^42.0.0"
+  }
+}
