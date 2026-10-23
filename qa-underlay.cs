@@ -4,7 +4,7 @@ class PetUnderlay:Form{
  [DllImport("user32.dll")]static extern bool SetProcessDPIAware();
  [DllImport("user32.dll")]static extern bool GetWindowRect(IntPtr h,out Rect r);
  string counter;int clicks;
- PetUnderlay(IntPtr root,string file){counter=file;Rect r;GetWindowRect(root,out r);AutoScaleMode=AutoScaleMode.None;FormBorderStyle=FormBorderStyle.None;StartPosition=FormStartPosition.Manual;Bounds=new Rectangle(r.L,r.T,r.R-r.L,r.B-r.T);BackColor=Color.LightBlue;TopMost=true;}
+ PetUnderlay(IntPtr root,string file){counter=file;Rect r;GetWindowRect(root,out r);AutoScaleMode=AutoScaleMode.None;FormBorderStyle=FormBorderStyle.None;StartPosition=FormStartPosition.Manual;Bounds=new Rectangle(r.L,r.T,r.R-r.L,r.B-r.T);BackColor=Color.LightBlue;TopMost=false;}
  protected override void OnShown(EventArgs e){base.OnShown(e);File.WriteAllText(counter,"0");File.WriteAllText(counter+".hwnd",Handle.ToInt64().ToString());}
  protected override void OnMouseUp(MouseEventArgs e){base.OnMouseUp(e);clicks++;File.WriteAllText(counter,clicks.ToString());}
  [STAThread]static void Main(string[] args){SetProcessDPIAware();Application.EnableVisualStyles();Application.Run(new PetUnderlay(new IntPtr(long.Parse(args[0])),args[1]));}

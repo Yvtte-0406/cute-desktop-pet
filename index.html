@@ -2,16 +2,12 @@
 <div id="bubble" role="status" hidden></div>
 <canvas id="pet" width="720" height="620" aria-label="白狐桌宠，点击抚摸，拖动托起，右键打开菜单"></canvas>
 <nav id="orbit" aria-label="桌宠菜单" hidden>
-<button data-pane="actions" title="动作" aria-label="动作"><svg viewBox="0 0 24 24"><path d="M7 15c-3 4 0 7 5 4 5 3 8 0 5-4l-3-4h-4z"/><ellipse cx="5" cy="8" rx="2" ry="3"/><ellipse cx="10" cy="5" rx="2" ry="3"/><ellipse cx="16" cy="5" rx="2" ry="3"/><ellipse cx="21" cy="9" rx="2" ry="3"/></svg><span>动作</span></button>
 <button data-pane="todos" title="待办" aria-label="待办"><svg viewBox="0 0 24 24"><rect x="5" y="4" width="15" height="17" rx="3"/><path d="M9 4V2h7v2M8 12l3 3 6-7"/></svg><span>待办</span></button>
 <button data-pane="size" title="大小" aria-label="大小"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M4 4l6 6M20 20l-6-6"/></svg><span>大小</span></button>
-<button data-pane="settings" title="提醒设置" aria-label="提醒设置"><svg viewBox="0 0 24 24"><path d="M5 17h14l-2-3V9a5 5 0 0 0-10 0v5zM10 20h4"/></svg><span>提醒</span></button>
 <button id="quit" title="退出桌宠" aria-label="退出桌宠"><svg viewBox="0 0 24 24"><path d="M12 2v10M7 5a8 8 0 1 0 10 0"/></svg><span>退出</span></button>
 </nav>
 <section id="panel" hidden><header><strong id="panel-title">待办事项</strong><button id="close" aria-label="收起详情">×</button></header>
-<div data-content="actions" hidden><div class="actions"><button data-state="idle">待机</button><button data-state="talk">说话</button><button data-state="pet">摸摸</button><button data-state="lift">托起预览</button></div></div>
-<div data-content="todos" hidden><form id="form"><input id="task" maxlength="500" placeholder="写下接下来要做的事" required aria-label="新待办事项"><button>添加</button></form><ul id="tasks"></ul></div>
-<div data-content="size" hidden><div class="size-control"><label for="pet-size">桌宠大小 <output id="size-value">100%</output></label><input id="pet-size" type="range" min="60" max="150" step="5" value="100"><button id="size-reset" type="button">恢复默认</button></div></div>
-<div data-content="settings" hidden><label class="reminder"><input type="checkbox" id="reminders" checked>每 15 分钟提醒未完成事项</label><p class="note">待办与大小设置保存在本地。全程静音。</p></div>
+<div data-content="todos" hidden><label class="reminder"><input type="checkbox" id="reminders" checked>每 30 分钟提醒待办</label><form id="form"><input id="task" maxlength="500" placeholder="写下接下来要做的事" required aria-label="新待办事项"><label class="deadline-label" for="deadline">截止时间（选填）</label><input id="deadline" type="datetime-local" aria-label="截止时间（选填）"><button type="submit">添加</button></form><ul id="tasks"></ul></div>
+<div data-content="size" hidden><div class="size-control"><label for="pet-size">桌宠大小 <output id="size-value">100%</output></label><input id="pet-size" type="range" min="40" max="150" step="5" value="100"><button id="size-reset" type="button">恢复默认</button></div></div>
 <p id="error" role="alert"></p></section></main>
-<script src="assets/layers/tail-layout.js"></script><script src="sprites.js"></script><script src="motion.js"></script><script src="rig.js"></script><script src="window-shape.js"></script><script src="renderer.js"></script></body></html>
+<script src="assets/layers/tail-layout.js"></script><script src="sprites.js"></script><script src="motion.js"></script><script src="rig.js"></script><script src="window-shape.js"></script><script src="todo-model.cjs"></script><script src="renderer.js"></script></body></html>
