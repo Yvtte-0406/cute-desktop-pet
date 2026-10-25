@@ -22,14 +22,9 @@ module.exports=async function verify(win){
  })()`);
  const textureUploads=await evaluate('window.petQA.snapshot().textureUploads');
  if(textureUploads!==11)throw Error('身体与九条尾巴的图层数量不正确');
- const tailImages=await evaluate('window.petQA.exportTailLayers()');fs.writeFileSync(path.join(__dirname,'assets','layers','closed-reference.png'),Buffer.from(await evaluate('window.petQA.exportClosedFace()'),'base64'));
- const layout=await evaluate('window.petQA.exportTailLayout()');
- fs.writeFileSync(path.join(__dirname,'assets','layers','tail-layout.json'),JSON.stringify(layout,null,2));
- fs.writeFileSync(path.join(__dirname,'assets','layers','tail-layout.js'),'window.preservedTailLayout='+JSON.stringify(layout)+';\n');
- if(tailImages.length!==9)throw Error('尾巴未完整拆分');
- const sourceFidelity=await evaluate('window.petQA.tailSourceFidelity()');
- if(sourceFidelity.checked<500||sourceFidelity.mismatches)throw Error('尾巴可见毛发与原图不一致');
- for(let i=0;i<9;i++)fs.writeFileSync(path.join(__dirname,'assets','layers','tail-'+String(i+1).padStart(2,'0')+'.png'),Buffer.from(tailImages[i],'base64'));
+ const independentTails=await require('./verify-tail-motion.cjs')(win,out);
+ const sourceFidelity=await evaluate('window.petQA.tailIntegrity()');
+ if(sourceFidelity.length!==9||sourceFidelity.some(t=>!t.complete||t.rootPixels<100||t.bodyOverlap<.98))throw Error('完整尾根与身体重叠不足：'+JSON.stringify(sourceFidelity));
  const preferences=await evaluate(`(async()=>{const original=await petAPI.getPreferences();const small=await petAPI.setScale(.75);const loaded=await petAPI.getPreferences();const large=await petAPI.setScale(1.25);await petAPI.setScale(original.scale);return {small:small.scale,loaded:loaded.scale,large:large.scale,restored:original.scale};})()`);
  if(preferences.small!==.75||preferences.loaded!==.75||preferences.large<=preferences.small)throw Error('桌宠大小调整或保存失败');
  const todoUI=await evaluate(`(async()=>{
@@ -87,7 +82,7 @@ module.exports=async function verify(win){
  const hits=await evaluate(`(()=>{const r=document.getElementById('pet').getBoundingClientRect();return {transparent:petQA.hitTest(r.x+2,r.y+2),fox:petQA.hitTest(r.x+r.width*451/720,r.y+r.height*390/620)};})()`);
  if(hits.transparent||!hits.fox)throw Error('狐狸轮廓点击判断失败');
  const video=await evaluate('window.petQA.record()');fs.writeFileSync(path.join(out,'animation-preview.webm'),Buffer.from(video,'base64'));
- const report={interaction,preferences,todoUI,removedDateFeatures,menu,hits,continuousAnimation:{textureUploads,tailCount:tailImages.length,sourceFidelity,blinkCoverage,faceStability,liftedEdges},performance:await evaluate('window.petQA.snapshot()')};
+ const report={interaction,preferences,todoUI,removedDateFeatures,menu,hits,continuousAnimation:{textureUploads,tailCount:sourceFidelity.length,sourceFidelity,independentTails,blinkCoverage,faceStability,liftedEdges},performance:await evaluate('window.petQA.snapshot()')};
  fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify(report,null,2));
  if(!interaction.click||!interaction.lift||!interaction.release||report.performance.errors.length)throw Error('交互检查失败');
 };
