@@ -1,0 +1,10 @@
+{
+  "assets": "assets/tails-overlap-v2/",
+  "reviewPending": false,
+  "comparison": "previews/tail-overlap-comparison.png",
+  "details": "previews/tail-overlap-details.png",
+  "productionAppChanged": true,
+  "animationVersion": "0.4.2",
+  "animationPreview": "previews/overlap-animation-v042.mp4",
+  "status": "user-approved"
+}

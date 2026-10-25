@@ -10,7 +10,7 @@ function showError(e){errors.push(e.message);$('error').textContent=e.message;$(
 const loadImage=src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error('动画图层加载失败：'+src));image.src=src;});
 let tailLayers=[];
 function cleanArt(image,sx=0,sy=0,w=image.width,h=image.height){const c=document.createElement('canvas');c.width=Math.round(w);c.height=Math.round(h);const g=c.getContext('2d',{willReadFrequently:true});g.drawImage(image,sx,sy,w,h,0,0,c.width,c.height);const pixels=g.getImageData(0,0,c.width,c.height);window.spriteTools.cleanSpritePixels(pixels.data,c.width,c.height);g.putImageData(pixels,0,0);return c;}
-let tailLayout=window.preservedTailLayout;let closedFace;Promise.all([loadImage('assets/layers/body.png'),loadImage('assets/layers/closed-reference.png'),...Array.from({length:9},(_,i)=>loadImage('assets/layers/tail-'+String(i+1).padStart(2,'0')+'.png'))]).then(([body,reference,...tails])=>{try{tailLayers=tails.map(image=>{const c=document.createElement('canvas');c.width=image.width;c.height=image.height;c.getContext('2d').drawImage(image,0,0);return c;});closedFace=document.createElement('canvas');closedFace.width=body.width;closedFace.height=body.height;closedFace.getContext('2d').drawImage(reference,0,0,body.width,body.height);rig=new window.foxRig.FoxRig(canvas,cleanArt(body),tailLayers,tailLayout,closedFace);ready=true;}catch(e){showError(e);}}).catch(showError);
+let tailLayout=window.reconstructedTailLayout;let closedFace;Promise.all([loadImage('assets/layers/body.png'),loadImage('assets/layers/closed-reference.png'),...Array.from({length:9},(_,i)=>loadImage('assets/tails-overlap-v2/tail-'+String(i+1).padStart(2,'0')+'.png'))]).then(([body,reference,...tails])=>{try{tailLayers=tails.map(image=>{const c=document.createElement('canvas');c.width=image.width;c.height=image.height;c.getContext('2d').drawImage(image,0,0);return c;});closedFace=document.createElement('canvas');closedFace.width=body.width;closedFace.height=body.height;closedFace.getContext('2d').drawImage(reference,0,0,body.width,body.height);rig=new window.foxRig.FoxRig(canvas,cleanArt(body),tailLayers,tailLayout,closedFace);ready=true;}catch(e){showError(e);}}).catch(showError);
 function draw(now){
  requestAnimationFrame(draw);if(!ready){last=now;return;}
  const raw=last?now-last:16.7,dt=Math.min(raw/1000,.05);last=now;
@@ -60,13 +60,13 @@ setInterval(pollReminders,1000);
 
 window.petQA={
  openMenu,closeMenus,hitTest,pollReminders,resetReminderClock:now=>reminderClock.reset(now),
- tailSourceFidelity:async()=>{const source=cleanArt(await loadImage('assets/fox.png')),src=source.getContext('2d').getImageData(0,0,source.width,source.height).data;let checked=0,mismatches=0;for(let i=0;i<9;i++){const c=tailLayers[i],p=c.getContext('2d').getImageData(0,0,c.width,c.height).data,[ox,oy]=tailLayout[i].offset;for(let y=0;y<c.height;y+=7)for(let x=0;x<c.width;x+=7){const a=(y*c.width+x)*4,b=((y+oy)*source.width+x+ox)*4;if(p[a+3]<245)continue;checked++;if(Math.max(Math.abs(p[a]-src[b]),Math.abs(p[a+1]-src[b+1]),Math.abs(p[a+2]-src[b+2]))>1)mismatches++;}}return {checked,mismatches};},
+ tailIntegrity:()=>tailLayout.map((b,i)=>{const c=tailLayers[i],p=c.getContext('2d').getImageData(0,0,c.width,c.height).data,x=Math.round(b.root[0]-b.offset[0]),y=Math.round(b.root[1]-b.offset[1]);const body=rig.image.getContext('2d').getImageData(0,0,1374,1145).data;let opaque=0,covered=0;for(let dy=-18;dy<=18;dy++)for(let dx=-18;dx<=18;dx++){if(p[((y+dy)*c.width+x+dx)*4+3]>200)opaque++;if(body[((b.root[1]+dy)*1374+b.root[0]+dx)*4+3]>240)covered++;}return {index:i,complete:b.complete,rootPixels:opaque,bodyOverlap:covered/1369};}),
  exportClosedFace:()=>closedFace.toDataURL('image/png').split(',')[1],
  exportTailLayout:()=>tailLayout,
  exportTailLayers:()=>tailLayers.map(c=>c.toDataURL('image/png').split(',')[1]),
  setState:s=>{frozenPose=null;if(s==='talk')say('今天也陪你一起完成待办。',20000);else{$('bubble').hidden=true;setState(s);}},
- freeze:p=>{frozenPose=p;},
- snapshot:()=>({mode,ready,errors,engine:'body-and-nine-independent-tail-meshes',tailCount:rig?.tailTextures.length,vertexCount:rig?.vertexCount,textureUploads:rig?.textureUploads,pose:rig?.pose,frameCount:times.length,meanFrameMs:times.reduce((a,b)=>a+b,0)/times.length,p95FrameMs:[...times].sort((a,b)=>a-b)[Math.floor(times.length*.95)]}),
+ freeze:p=>{frozenPose=p;if(p&&ready)rig.render({...pose,...p});},
+ snapshot:()=>({mode,ready,errors,engine:'body-and-nine-independent-tail-meshes',tailCount:rig?.tailTextures.length,tailOrder:rig?.drawOrder,shadowCount:rig?.occlusion.shadows.length,vertexCount:rig?.vertexCount,textureUploads:rig?.textureUploads,pose:rig?.pose,frameCount:times.length,meanFrameMs:times.reduce((a,b)=>a+b,0)/times.length,p95FrameMs:[...times].sort((a,b)=>a-b)[Math.floor(times.length*.95)]}),
  record:()=>new Promise(resolve=>{
   const chunks=[],stream=canvas.captureStream(60),rec=new MediaRecorder(stream,{mimeType:'video/webm;codecs=vp9'});
   rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};

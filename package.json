@@ -1,14 +1,14 @@
 {
   "name": "white-fox-desktop-pet",
-  "version": "0.3.1",
+  "version": "0.4.2",
   "private": true,
   "description": "阿泠 · 本地静音桌宠",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "preview": "electron . --preview",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check renderer.js && node --check rig.js && node --check motion.js && node --check todo-model.cjs",
-    "test": "node --test motion.test.cjs sizing.test.cjs todo-model.test.cjs",
+    "check": "node --check main.cjs && node --check preload.cjs && node --check renderer.js && node --check rig.js && node --check motion.js && node --check todo-model.cjs && node --check tail-motion.js",
+    "test": "node --test motion.test.cjs sizing.test.cjs todo-model.test.cjs tail-motion.test.cjs",
     "package": "node build-app.cjs"
   },
   "build": {
@@ -32,7 +32,12 @@
       "index.html",
       "style.css",
       "assets/fox.png",
-      "assets/layers/**"
+      "tail-motion.js",
+      "assets/layers/body.png",
+      "assets/layers/closed-reference.png",
+      "assets/tails-overlap-v2/tail-*.png",
+      "assets/tails-overlap-v2/layout.js",
+      "assets/tails-overlap-v2/occlusion.js"
     ],
     "win": {
       "icon": "assets/app.ico",

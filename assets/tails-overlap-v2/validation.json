@@ -1,0 +1,106 @@
+{
+  "crownDifference": 0,
+  "extensionSamples": [
+    {
+      "x": 533,
+      "y": 370,
+      "oldAlpha": 0,
+      "newAlpha": 255
+    },
+    {
+      "x": 550,
+      "y": 480,
+      "oldAlpha": 0,
+      "newAlpha": 255
+    },
+    {
+      "x": 592,
+      "y": 580,
+      "oldAlpha": 0,
+      "newAlpha": 255
+    }
+  ],
+  "metrics": [
+    {
+      "id": 1,
+      "connectedToRoot": 0.999407465929291
+    },
+    {
+      "id": 2,
+      "connectedToRoot": 0.9999619668223914
+    },
+    {
+      "id": 3,
+      "connectedToRoot": 0.9999703506920149
+    },
+    {
+      "id": 4,
+      "connectedToRoot": 0.9999934036069077
+    },
+    {
+      "id": 5,
+      "connectedToRoot": 1
+    },
+    {
+      "id": 6,
+      "connectedToRoot": 0.9999669213721015
+    },
+    {
+      "id": 7,
+      "connectedToRoot": 0.9999480082840134
+    },
+    {
+      "id": 8,
+      "connectedToRoot": 0.9997796653116083
+    },
+    {
+      "id": 9,
+      "connectedToRoot": 0.9998654177433247
+    }
+  ],
+  "drawOrder": [
+    6,
+    4,
+    5,
+    7,
+    8,
+    3,
+    9,
+    2,
+    1
+  ],
+  "tail5InFrontOf4": true,
+  "tail1InFrontOf2": true,
+  "tail5EarBoundary": [
+    520,
+    355,
+    520,
+    390,
+    575,
+    565,
+    660,
+    725
+  ],
+  "shadeStats": [
+    {
+      "caster": 5,
+      "receiver": 4,
+      "affected": 81516
+    },
+    {
+      "caster": 3,
+      "receiver": 4,
+      "affected": 69551
+    },
+    {
+      "caster": 2,
+      "receiver": 3,
+      "affected": 41380
+    },
+    {
+      "caster": 1,
+      "receiver": 2,
+      "affected": 20502
+    }
+  ]
+}

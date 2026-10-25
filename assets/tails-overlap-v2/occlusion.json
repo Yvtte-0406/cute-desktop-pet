@@ -1,0 +1,55 @@
+{
+  "order": [
+    6,
+    4,
+    5,
+    7,
+    8,
+    3,
+    9,
+    2,
+    1
+  ],
+  "shadows": [
+    {
+      "caster": 5,
+      "receiver": 4,
+      "blur": 12,
+      "offset": [
+        -5,
+        4
+      ],
+      "opacity": 0.13
+    },
+    {
+      "caster": 3,
+      "receiver": 4,
+      "blur": 13,
+      "offset": [
+        0,
+        -5
+      ],
+      "opacity": 0.15
+    },
+    {
+      "caster": 2,
+      "receiver": 3,
+      "blur": 13,
+      "offset": [
+        0,
+        -6
+      ],
+      "opacity": 0.16
+    },
+    {
+      "caster": 1,
+      "receiver": 2,
+      "blur": 12,
+      "offset": [
+        0,
+        -5
+      ],
+      "opacity": 0.15
+    }
+  ]
+}
