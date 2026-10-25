@@ -1,8 +1,8 @@
 {
   "name": "white-fox-desktop-pet",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "private": true,
-  "description": "本地静音白狐桌宠",
+  "description": "阿泠 · 本地静音桌宠",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
@@ -13,7 +13,7 @@
   },
   "build": {
     "appId": "cn.yvtte.whitefox",
-    "productName": "白狐桌宠",
+    "productName": "阿泠",
     "directories": {
       "output": "dist"
     },

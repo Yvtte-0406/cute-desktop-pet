@@ -4,6 +4,8 @@ module.exports=async function verify(win){
  const out=path.join(__dirname,'qa');fs.mkdirSync(out,{recursive:true});
  const evaluate=code=>win.webContents.executeJavaScript(code);
  const ready=await evaluate('window.petQA.snapshot().ready');if(!ready)throw Error('动画素材未加载');
+ const removedDateFeatures=await evaluate(`({noDateSummary:!document.getElementById('calendar-summary'),noCalendarBridge:typeof petAPI.getCalendarContext==='undefined'&&typeof petAPI.claimCalendarGreeting==='undefined',taskReminderOnly:document.querySelector('[data-content="todos"]').textContent.includes('每30分钟提醒待办')})`);
+ if(Object.values(removedDateFeatures).some(v=>!v))throw Error('日期问候相关界面或接口仍存在');
  const interaction=await evaluate(`(async()=>{
   const task={id:'qa-task',text:'测试待办 <安全文本>',done:false};
   await petAPI.saveTasks([task]);const restored=await petAPI.readTasks();
@@ -85,7 +87,7 @@ module.exports=async function verify(win){
  const hits=await evaluate(`(()=>{const r=document.getElementById('pet').getBoundingClientRect();return {transparent:petQA.hitTest(r.x+2,r.y+2),fox:petQA.hitTest(r.x+r.width*451/720,r.y+r.height*390/620)};})()`);
  if(hits.transparent||!hits.fox)throw Error('狐狸轮廓点击判断失败');
  const video=await evaluate('window.petQA.record()');fs.writeFileSync(path.join(out,'animation-preview.webm'),Buffer.from(video,'base64'));
- const report={interaction,preferences,todoUI,menu,hits,continuousAnimation:{textureUploads,tailCount:tailImages.length,sourceFidelity,blinkCoverage,faceStability,liftedEdges},performance:await evaluate('window.petQA.snapshot()')};
+ const report={interaction,preferences,todoUI,removedDateFeatures,menu,hits,continuousAnimation:{textureUploads,tailCount:tailImages.length,sourceFidelity,blinkCoverage,faceStability,liftedEdges},performance:await evaluate('window.petQA.snapshot()')};
  fs.writeFileSync(path.join(out,'verification.json'),JSON.stringify(report,null,2));
  if(!interaction.click||!interaction.lift||!interaction.release||report.performance.errors.length)throw Error('交互检查失败');
 };
