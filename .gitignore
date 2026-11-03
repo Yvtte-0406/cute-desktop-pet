@@ -2,3 +2,21 @@ node_modules/
 qa/
 dist/
 *.log
+
+# Local credentials and private reminder state (normally under AppData)
+ai-settings.json
+ai-reminder-state.json
+.env
+.env.*
+*.key
+
+# Reminder state and generated Windows helper
+reminders-v2.json
+native/presence-helper.exe
+
+# Reading state, local profiles and diagnostic output
+reminder-view.json
+todos.json
+preferences.json
+startup-status.json
+*.dmp

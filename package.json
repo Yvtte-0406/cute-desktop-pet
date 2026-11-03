@@ -1,21 +1,22 @@
 {
   "name": "white-fox-desktop-pet",
-  "version": "0.4.3",
+  "version": "0.6.8",
   "private": true,
   "description": "阿泠 · 本地静音桌宠",
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
     "preview": "electron . --preview",
-    "check": "node --check main.cjs && node --check preload.cjs && node --check renderer.js && node --check rig.js && node --check motion.js && node --check todo-model.cjs && node --check tail-motion.js && node --check drag-window.cjs",
-    "test": "node --test motion.test.cjs sizing.test.cjs todo-model.test.cjs tail-motion.test.cjs drag-window.test.cjs",
-    "package": "node build-app.cjs"
+    "check": "node --check main.cjs && node --check preload.cjs && node --check renderer.js && node --check rig.js && node --check motion.js && node --check todo-model.cjs && node --check tail-motion.js && node --check drag-window.cjs && node --check ai-reminders.cjs && node --check ai-settings.cjs && node --check menu-arc.js && node --check bubble-frame.js && node --check reminder-engine.cjs && node --check state-store.cjs && node --check presence-model.cjs && node --check presence-service.cjs && node --check reminder-runtime.cjs && node --check ai-planner.cjs && node --check ai-prompt.cjs && node --check reminder-ui.js && node --check reminder-copy.js && node --check semantic-context.cjs && node --check reading-session.cjs && node --check recurrence.cjs",
+    "test": "node --test motion.test.cjs sizing.test.cjs todo-model.test.cjs tail-motion.test.cjs drag-window.test.cjs ai-reminders.test.cjs reminder-engine.test.cjs presence-model.test.cjs state-store.test.cjs reminder-serial.test.cjs semantic-reminders.test.cjs reading-session.test.cjs outside-click.test.cjs recurring.test.cjs",
+    "package": "node build-app.cjs",
+    "build:presence": "node build-presence.cjs"
   },
   "build": {
     "appId": "cn.yvtte.whitefox",
     "productName": "阿泠",
     "directories": {
-      "output": "dist"
+      "output": "dist/v0.6.8"
     },
     "electronDist": "node_modules/electron/dist",
     "asar": true,
@@ -38,12 +39,34 @@
       "assets/tails-overlap-v2/tail-*.png",
       "assets/tails-overlap-v2/layout.js",
       "assets/tails-overlap-v2/occlusion.js",
-      "drag-window.cjs"
+      "drag-window.cjs",
+      "ai-reminders.cjs",
+      "ai-settings.cjs",
+      "menu-arc.js",
+      "bubble-frame.js",
+      "reminder-engine.cjs",
+      "state-store.cjs",
+      "presence-model.cjs",
+      "presence-service.cjs",
+      "reminder-runtime.cjs",
+      "ai-planner.cjs",
+      "ai-prompt.cjs",
+      "reminder-ui.js",
+      "reminder-copy.js",
+      "semantic-context.cjs",
+      "reading-session.cjs",
+      "recurrence.cjs"
     ],
     "win": {
       "icon": "assets/app.ico",
       "signAndEditExecutable": false
-    }
+    },
+    "extraResources": [
+      {
+        "from": "native/presence-helper.exe",
+        "to": "presence-helper.exe"
+      }
+    ]
   },
   "devDependencies": {
     "electron": "^42.0.0",

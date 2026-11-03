@@ -5,7 +5,7 @@ let lastShape=0,ready=false,mode='idle',modeUntil=0,last=0,press=null,dragging=f
 const motion=new window.foxMotion.FoxMotion(),times=[],errors=[];
 window.addEventListener('error',e=>errors.push(e.message));
 function setState(state,duration=0){mode=state;modeUntil=duration?performance.now()+duration:0;}
-function say(text,duration=5500){$('bubble').textContent=text;$('bubble').hidden=false;bubbleUntil=performance.now()+duration;setState('talk',duration);}
+function say(text,duration=5500){window.reminderUI?.beforeSay();$('bubble-text').textContent=text;$('bubble').hidden=false;window.bubbleFrame.update();bubbleUntil=duration>0?performance.now()+duration:0;setState('talk',Math.min(duration||3500,3500));window.reminderUI?.afterSay();}
 function showError(e){errors.push(e.message);$('error').textContent=e.message;$('panel').hidden=false;}
 const loadImage=src=>new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(Error('动画图层加载失败：'+src));image.src=src;});
 let tailLayers=[];
@@ -16,19 +16,22 @@ function draw(now){
  const raw=last?now-last:16.7,dt=Math.min(raw/1000,.05);last=now;
  times.push(raw);if(times.length>600)times.shift();
  if(modeUntil&&now>modeUntil)setState('idle');
- if(bubbleUntil&&now>bubbleUntil){$('bubble').hidden=true;bubbleUntil=0;}
+ if(bubbleUntil&&now>bubbleUntil){if(window.reminderUI?.holdsReading())bubbleUntil=0;else{$('bubble').hidden=true;bubbleUntil=0;window.reminderUI?.expired();}}
  pose=motion.step(dt,mode,velocity);velocity*=Math.exp(-dt*6);
  try{rig.render(frozenPose?{...pose,...frozenPose}:pose);if(!preview&&now-lastShape>65){lastShape=now;api.setShape(window.petShape.shape(canvas,rig.gl));}}catch(e){ready=false;showError(e);}
 }
 requestAnimationFrame(draw);
 let menuOpen=false,activePane=null;
-const paneTitles={todos:'待办事项',size:'桌宠大小'};
-function openMenu(pane){menuOpen=true;activePane=pane;$('orbit').hidden=false;$('panel').hidden=!pane;$('bubble').hidden=true;if(pane)$('panel-title').textContent=paneTitles[pane];document.querySelectorAll('[data-content]').forEach(el=>el.hidden=el.dataset.content!==pane);document.querySelectorAll('[data-pane]').forEach(el=>el.setAttribute('aria-expanded',String(el.dataset.pane===pane)));updatePetLayout();api.setMenu({open:true,details:Boolean(pane)});}
-function closeMenus(){menuOpen=false;activePane=null;$('orbit').hidden=true;$('panel').hidden=true;updatePetLayout();api.setMenu({open:false,details:false});}
+const paneTitles={todos:'待办事项',size:'桌宠大小',settings:'设置'};
+function openMenu(pane){window.reminderUI?.menuOpened();menuOpen=true;activePane=pane;$('orbit').hidden=false;$('panel').hidden=!pane;$('bubble').hidden=true;if(pane)$('panel-title').textContent=paneTitles[pane];document.querySelectorAll('[data-content]').forEach(el=>el.hidden=el.dataset.content!==pane);// Transparent desktop areas are handled by native window blur; local clicks use capture.
+document.addEventListener('pointerdown',e=>{if(e.button!==0||!menuOpen||e.target.closest('#panel, #orbit button'))return;closeMenus();},true);
+
+document.querySelectorAll('[data-pane]').forEach(el=>el.setAttribute('aria-expanded',String(el.dataset.pane===pane)));updatePetLayout();api.setMenu({open:true,details:Boolean(pane)});window.reminderUI?.syncOutsideWatch();}
+function closeMenus(){const wasOpen=menuOpen;menuOpen=false;activePane=null;$('orbit').hidden=true;$('panel').hidden=true;document.querySelectorAll('[data-pane]').forEach(el=>el.setAttribute('aria-expanded','false'));updatePetLayout();api.setMenu({open:false,details:false});if(wasOpen)window.reminderUI?.menuClosed();window.reminderUI?.syncOutsideWatch();}
 document.querySelectorAll('[data-pane]').forEach(el=>el.onclick=()=>openMenu(activePane===el.dataset.pane?null:el.dataset.pane));
 function hitTest(x,y){
  const el=document.elementFromPoint(x,y);if(!el)return false;
- if(el.closest('#panel')||el.closest('#orbit button'))return true;
+ if(el.closest('#panel')||el.closest('#orbit button')||el.closest('#bubble button, #bubble select, #bubble input, #pending-reminders'))return true;
  if(el!==canvas||!ready)return false;
  const r=canvas.getBoundingClientRect();if(x<r.left||x>=r.right||y<r.top||y>=r.bottom)return false;
  const px=Math.max(0,Math.min(canvas.width-1,Math.floor((x-r.left)/r.width*canvas.width))),py=Math.max(0,Math.min(canvas.height-1,Math.floor((y-r.top)/r.height*canvas.height)));
@@ -46,20 +49,29 @@ $('size-reset').onclick=()=>{clearTimeout(sizeTimer);changeScale(1);};
 api.getPreferences().then(p=>{displayScale(p.scale);$('reminders').checked=p.reminders!==false;}).catch(e=>{$('error').textContent='无法读取大小设置：'+e.message;});
 
 canvas.addEventListener('pointerdown',e=>{if(e.button!==0||(e.isTrusted&&!hitTest(e.clientX,e.clientY)))return;press={x:e.screenX,y:e.screenY,lastX:e.screenX};if(e.isTrusted)canvas.setPointerCapture(e.pointerId);});
-canvas.addEventListener('pointermove',e=>{if(!press)return;velocity=e.screenX-press.lastX;press.lastX=e.screenX;if(!dragging&&Math.hypot(e.screenX-press.x,e.screenY-press.y)>6){dragging=true;$('bubble').hidden=true;setState('lift');api.startDrag();}});
-function release(){if(!press)return;if(dragging){api.stopDrag();setState('idle');}else{setState('pet',2100);}press=null;dragging=false;}
-canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',()=>{press=null;dragging=false;api.stopDrag();setState('idle');});api.onCancel(()=>{press=null;dragging=false;setState('idle');});
-canvas.addEventListener('contextmenu',e=>{e.preventDefault();if(menuOpen)closeMenus();else openMenu(null);});$('close').onclick=()=>openMenu(null);$('quit').onclick=()=>api.quit();
-async function persist(next){try{await api.saveTasks(next);tasks=next;renderTasks();$('error').textContent='';return true;}catch(e){$('error').textContent='保存失败，请重试：'+e.message;return false;}}
-function renderTasks(){$('tasks').replaceChildren();if(!tasks.length){const li=document.createElement('li');li.textContent='还没有待办，慢慢来。';$('tasks').append(li);}for(const t of tasks){const li=document.createElement('li'),label=document.createElement('span'),title=document.createElement('span'),del=document.createElement('button');title.textContent=t.text;label.append(title);if(t.deadline){const time=document.createElement('time');time.dateTime=t.deadline;time.textContent='截止 '+new Date(t.deadline).toLocaleString('zh-CN');time.classList.toggle('overdue',Date.parse(t.deadline)<Date.now());label.append(time);}if(t.done){const old=document.createElement('small');old.textContent='旧版已完成';label.append(old);}del.textContent='删除';del.setAttribute('aria-label','删除：'+t.text);del.onclick=()=>persist(tasks.filter(x=>x.id!==t.id));li.append(label,del);$('tasks').append(li);}}
-$('form').onsubmit=async e=>{e.preventDefault();const text=$('task').value.trim(),value=$('deadline').value;if(value&&!Number.isFinite(new Date(value).getTime())){$('error').textContent='请填写有效的截止时间';return;}const deadline=value?new Date(value).toISOString():null;if(text&&await persist([...tasks,{id:crypto.randomUUID(),text,deadline,done:false}])){$('task').value='';$('deadline').value='';}};api.readTasks().then(items=>{tasks=window.foxTodos.normalizeTasks(items);renderTasks();}).catch(e=>{$('error').textContent='无法读取待办：'+e.message;});
-const reminderClock=new window.foxTodos.ReminderClock();
-$('reminders').onchange=async()=>{const enabled=$('reminders').checked;try{await api.setReminders(enabled);reminderClock.reset();$('error').textContent='';}catch(e){$('reminders').checked=!enabled;$('error').textContent='提醒设置保存失败：'+e.message;}};
-function pollReminders(now=Date.now()){const message=reminderClock.poll(now,{enabled:$('reminders').checked,idle:mode==='idle'&&!menuOpen,tasks});if(message)say(message,8500);return message;}
-setInterval(pollReminders,1000);
+canvas.addEventListener('pointermove',e=>{if(!press)return;velocity=e.screenX-press.lastX;press.lastX=e.screenX;if(!dragging&&Math.hypot(e.screenX-press.x,e.screenY-press.y)>6){dragging=true;window.reminderUI?.suspendLocal('drag');$('bubble').hidden=true;setState('lift');api.startDrag();}});
+function release(){if(!press)return;if(dragging){api.stopDrag();setState('idle');window.reminderUI?.menuClosed();}else{setState('pet',2100);window.reminderUI?.foxClick();}press=null;dragging=false;}
+canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',()=>{press=null;dragging=false;api.stopDrag();setState('idle');});api.onCancel(()=>{press=null;dragging=false;closeMenus();setState('idle');window.reminderUI?.menuClosed();});
+canvas.addEventListener('contextmenu',e=>{e.preventDefault();if(menuOpen)closeMenus();else openMenu(null);});$('close').onclick=closeMenus;$('quit').onclick=()=>api.quit();
+function pollReminders(){return '';}
+const reminderClock={reset(){}};
+$('reminders').onchange=async()=>{const enabled=$('reminders').checked;try{await api.setReminders(enabled);}catch(e){$('reminders').checked=!enabled;$('error').textContent=e.message;}};
 
+function displayStartup(s){$('autostart').checked=s.enabled;$('autostart').disabled=!s.supported;$('startup-status').textContent=!s.supported?'打包后的应用可设置开机自启':s.enabled?(s.willLaunch?'开机自启已开启':'已登记，请在Windows启动应用中允许阿泠'):'开机自启已关闭';}
+api.getStartup().then(displayStartup).catch(()=>{$('startup-status').textContent='自启设置读取失败';});
+$('autostart').onchange=async()=>{const enabled=$('autostart').checked;try{displayStartup(await api.setStartup(enabled));}catch(e){$('autostart').checked=!enabled;$('startup-status').textContent='自启设置保存失败';}};
+let aiConfigured=false,aiPending=false,reminderRevision=0;
+function displayAISettings(s){aiConfigured=s.enabled&&s.hasKey;$('ai-enabled').checked=s.enabled;$('ai-dynamic').checked=s.dynamic;$('ai-limit').value=s.dailyLimit;$('ai-month-budget').value=s.monthBudgetRMB??'';$('ai-input-price').value=s.inputRMB??'';$('ai-output-price').value=s.outputRMB??'';$('api-key').value='';$('api-key').placeholder=s.hasKey?'Key已加密保存；留空表示保留':'未填写，仅使用本地提醒';$('ai-status').textContent=(aiConfigured?'AI已开启':'本地提醒')+' · 今日调用 '+s.usage.calls+'/'+s.usage.limit+' · '+s.model+' · 输入/输出 '+s.usage.inputTokens+'/'+s.usage.outputTokens+' tokens'+(s.usage.priceConfigured?' · 本月估算¥'+s.usage.costRMB.toFixed(4):' · 费用未估算（价格未设置）')+(s.usage.calls>=20?' · 今日用量较多':'');const states={'key-rejected':'Key未通过验证，使用本地提醒','rate-limited':'接口繁忙，使用本地提醒','monthly-limit':'月预算已达限制，使用本地提醒','daily-limit':'今日调用已达上限，使用本地提醒',fallback:'连接或输出异常，使用本地提醒',cooldown:'请求冷却中，使用本地提醒'};if(states[s.usage.status])$('ai-status').textContent+=' · '+states[s.usage.status];}
+api.getAISettings().then(displayAISettings).catch(()=>{$('ai-status').textContent='设置读取失败，继续本地提醒';});
+$('ai-form').onsubmit=async e=>{e.preventDefault();try{const s=await api.saveAISettings({enabled:$('ai-enabled').checked,dynamic:$('ai-dynamic').checked,apiKey:$('api-key').value,dailyLimit:$('ai-limit').value,monthBudgetRMB:$('ai-month-budget').value,inputRMB:$('ai-input-price').value,outputRMB:$('ai-output-price').value});reminderRevision++;reminderClock.reset();displayAISettings(s);$('ai-status').textContent+=' · 已保存';}catch(e){$('ai-status').textContent=e.message.replace(/^.*?Error: /,'');}};
+$('ai-remove').onclick=async()=>{try{displayAISettings(await api.saveAISettings({enabled:false,dynamic:true,apiKey:'',removeKey:true}));reminderRevision++;reminderClock.reset();$('ai-preview').textContent='';}catch(e){$('ai-status').textContent='删除失败，请重试';}};
+let previewBusy=false;
+async function previewReminder(){if(previewBusy)return null;previewBusy=true;const button=$('ai-preview-button'),label=button.textContent;button.disabled=true;button.textContent='正在生成…';$('ai-preview').textContent='正在准备提醒，最多等待12秒…';$('ai-preview').scrollIntoView({block:'nearest'});
+ try{const result=await api.previewAI(),source=result.source?.startsWith('ai')?'AI预览':'本地预览',message=result.message||'爪爪轻敲～先在待办里写下一件要做的事吧，我来陪你开始！';let note='';if(source==='本地预览'){const reasons={'key-rejected':'Key未通过验证，已使用本地提醒','daily-limit':'今日额度已用完，已使用本地提醒',cooldown:'请求冷却中，已使用本地提醒','rate-limited':'接口繁忙，已使用本地提醒',fallback:'连接或输出异常，已使用本地提醒'};note=reasons[result.reason]||'未使用AI，展示本地提醒';}const display=source+'：'+message;$('ai-preview').textContent=display+(note?'（'+note+'）':'');displayAISettings(await api.getAISettings());closeMenus();say(message,0);return {...result,display};
+ }catch(error){const display='本地预览：'+(window.foxTodos.reminderText(tasks)||'先添加一件待办吧，我陪你一起完成～');$('ai-preview').textContent=display;closeMenus();say(display,0);return {source:'local',display};}finally{button.disabled=false;button.textContent=label;previewBusy=false;}}
+$('ai-preview-button').onclick=previewReminder;
 window.petQA={
- openMenu,closeMenus,hitTest,pollReminders,resetReminderClock:now=>reminderClock.reset(now),
+ showBubbleSample:text=>{closeMenus();say(text||'样式示例：哼，待办可别忘了，记牢啦！',22000);},previewReminder,openMenu,closeMenus,hitTest,pollReminders,resetReminderClock:now=>reminderClock.reset(now),
  tailIntegrity:()=>tailLayout.map((b,i)=>{const c=tailLayers[i],p=c.getContext('2d').getImageData(0,0,c.width,c.height).data,x=Math.round(b.root[0]-b.offset[0]),y=Math.round(b.root[1]-b.offset[1]);const body=rig.image.getContext('2d').getImageData(0,0,1374,1145).data;let opaque=0,covered=0;for(let dy=-18;dy<=18;dy++)for(let dx=-18;dx<=18;dx++){if(p[((y+dy)*c.width+x+dx)*4+3]>200)opaque++;if(body[((b.root[1]+dy)*1374+b.root[0]+dx)*4+3]>240)covered++;}return {index:i,complete:b.complete,rootPixels:opaque,bodyOverlap:covered/1369};}),
  exportClosedFace:()=>closedFace.toDataURL('image/png').split(',')[1],
  exportTailLayout:()=>tailLayout,

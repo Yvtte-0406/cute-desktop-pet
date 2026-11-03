@@ -8,8 +8,9 @@ function shape(canvas,gl){
  const panel=document.getElementById('panel');if(!panel.hidden){const b=panel.getBoundingClientRect();rects.push({x:Math.max(0,Math.floor(b.x)-8),y:Math.max(0,Math.floor(b.y)-8),width:Math.ceil(b.width)+16,height:Math.ceil(b.height)+16});}
  const nav=document.getElementById('orbit');if(!nav.hidden){for(const button of nav.querySelectorAll('button')){const b=button.getBoundingClientRect(),radius=b.width/2;for(let y=0;y<b.height;y+=2){const half=Math.sqrt(Math.max(0,radius*radius-Math.pow(y-radius,2)));rects.push({x:Math.floor(b.x+radius-half)-2,y:Math.floor(b.y+y)-2,width:Math.ceil(half*2)+4,height:5});}const label=button.querySelector('span').getBoundingClientRect();rects.push({x:Math.floor(label.x),y:Math.floor(label.y),width:Math.ceil(label.width),height:Math.ceil(label.height)});}
   // The decorative arc remains visible without a filled semicircle.
-  const n=nav.getBoundingClientRect();for(let x=22;x<197;x+=2){const dx=(x-109)/87;if(Math.abs(dx)>1)continue;const y=72-50*Math.sqrt(1-dx*dx);rects.push({x:Math.floor(n.x+x),y:Math.floor(n.y+y),width:4,height:4});}}
- const bubble=document.getElementById('bubble');if(!bubble.hidden){const b=bubble.getBoundingClientRect();rects.push({x:Math.floor(b.x)-4,y:Math.floor(b.y)-4,width:Math.ceil(b.width)+8,height:Math.ceil(b.height)+8});}
+  const n=nav.getBoundingClientRect(),arc=window.menuArc;for(let a=arc.start;a<=arc.end;a+=.25){const p=arc.point(a);rects.push({x:Math.floor(n.x+p.x)-2,y:Math.floor(n.y+p.y)-2,width:5,height:5});}}
+ const marker=document.getElementById('pending-reminders');if(marker&&!marker.hidden){const b=marker.getBoundingClientRect();rects.push({x:Math.floor(b.x),y:Math.floor(b.y),width:Math.ceil(b.width),height:Math.ceil(b.height)});}
+ rects.push(...window.bubbleFrame.rectangles());
  return rects.filter(b=>b.width>0&&b.height>0);
 }
 window.petShape={shape};

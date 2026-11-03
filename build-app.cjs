@@ -1,9 +1,11 @@
 const {spawnSync}=require('node:child_process');const path=require('node:path'),fs=require('node:fs');
 function run(file,args){const result=spawnSync(file,args,{cwd:__dirname,stdio:'inherit',windowsHide:true});if(result.error)throw result.error;if(result.status!==0)process.exit(result.status||1);}
+run(process.execPath,[path.join(__dirname,'build-presence.cjs')]);
 run(require('electron'),[path.join(__dirname,'build-icon.cjs')]);
 run(process.execPath,[require.resolve('electron-builder/cli.js'),'--win','--dir']);
 // This resource editor needs an ASCII filename on Windows.
-const target=path.join(__dirname,'dist','win-unpacked',require('./package.json').build.productName+'.exe'),temporary=path.join(__dirname,'dist','win-unpacked','fox-icon.exe');
+const target=path.join(__dirname,require('./package.json').build.directories.output,'win-unpacked',require('./package.json').build.productName+'.exe'),temporary=path.join(__dirname,'dist','win-unpacked','fox-icon.exe');
+fs.mkdirSync(path.dirname(temporary),{recursive:true});
 fs.copyFileSync(target,temporary);
 run(path.join(__dirname,'node_modules','electron-winstaller','vendor','rcedit.exe'),[
  temporary,'--set-icon',path.join(__dirname,'assets','app.ico'),

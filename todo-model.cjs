@@ -20,11 +20,13 @@
  function reminderText(tasks,now=Date.now()){
   const pending=tasks.filter(t=>!t.done).slice().sort((a,b)=>(a.deadline?Date.parse(a.deadline):Infinity)-(b.deadline?Date.parse(b.deadline):Infinity));
   if(!pending.length)return '';
-  const text=pending.slice(0,2).map(t=>'「'+(t.text.length>42?t.text.slice(0,41)+'…':t.text)+'」'+(t.deadline?'（'+deadlineHint(t.deadline,now)+'）':''));
-  const intros=['小狐狸探头：','爪爪轻轻敲一下～','工作搭子来报到！'];
-  const endings=['咱们一点点搞定，我陪你～','先挑一小步开始吧！','给你加点狐狸能量，一起加油～'];
-  const variant=Math.floor(now/REMINDER_MS)%intros.length;
-  return intros[variant]+text.join('、')+'还在待办里'+(pending.length>2?'，一共 '+pending.length+' 件':'')+'。'+endings[variant];
+  const first=pending[0],name='「'+(first.text.length>42?first.text.slice(0,41)+'…':first.text)+'」';
+  const left=first.deadline?Date.parse(first.deadline)-now:Infinity;
+  if(left<=0)return '爪爪提醒！'+name+'已经到截止时间啦，可别漏掉了！';
+  if(left<=3600000)return '喂喂！'+name+'快截止啦，这件最着急！';
+  if(left<=86400000)return '哼，'+name+deadlineHint(first.deadline,now)+'，记牢啦！';
+  const text=pending.slice(0,2).map(t=>'「'+(t.text.length>42?t.text.slice(0,41)+'…':t.text)+'」').join('、');
+  return ['哼，'+text+'还在待办里，可别忘了！','爪爪提醒～'+text+'也要记着哦！','喂喂，'+text+'还等着你呢！'][Math.floor(now/REMINDER_MS)%3];
  }
  class ReminderClock{
   constructor(now=Date.now()){this.next=now+REMINDER_MS;}

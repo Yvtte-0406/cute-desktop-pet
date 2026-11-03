@@ -1,0 +1,36 @@
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+module.exports=async function(win,runtime){
+ const evaluate=code=>win.webContents.executeJavaScript(code),sleep=ms=>new Promise(r=>setTimeout(r,ms)),out=path.join(__dirname,'qa');fs.mkdirSync(out,{recursive:true});const checks={},startedAt=Date.now();
+ const progress=stage=>fs.writeFileSync(path.join(out,'reading-progress.json'),JSON.stringify({stage,startedAt,elapsedSeconds:Math.round((Date.now()-startedAt)/1000)},null,2));
+ async function waitFor(code,label,timeout=6500){const start=Date.now();while(Date.now()-start<timeout){if(await evaluate(code))return;await sleep(100);}throw Error('Waiting for '+label);}
+ runtime.dismiss();for(const t of runtime.engine.list())runtime.remove(t.id);
+ await evaluate(`petQA.setState('idle');petQA.openMenu('todos');`);
+ const first=runtime.upsert({text:'阅读测试第一件',deadline:new Date(Date.now()+5*60000).toISOString()}),second=runtime.upsert({text:'阅读测试第二件',deadline:new Date(Date.now()+10*60000).toISOString()});
+ await evaluate(`petQA.closeMenus()`);await waitFor(`!document.getElementById('bubble').hidden&&document.getElementById('bubble-text').textContent.includes('阅读测试第一件')`,'first reminder');
+ const original=await evaluate(`document.getElementById('bubble-text').textContent`);checks.noNextMarker=await evaluate(`!document.getElementById('next-reminder')`);
+ progress('waiting-two-minutes');await sleep(process.argv.includes('--reading-fast')?1200:120000);
+ checks[process.argv.includes('--reading-fast')?'staysVisibleFastCheck':'staysVisibleTwoMinutes']=await evaluate(`!document.getElementById('bubble').hidden&&document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);
+ fs.writeFileSync(path.join(out,'reading-persistent.png'),(await win.webContents.capturePage()).toPNG());
+ win.emit('blur');await sleep(1400);checks.focusLossStable=await evaluate(`!document.getElementById('bubble').hidden&&document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);
+ await evaluate(`setState('idle');api.reminderBusy(false);bubbleUntil=performance.now()-1;`);await sleep(1500);checks.expiredTimerCannotDismissReading=await evaluate(`!document.getElementById('bubble').hidden&&document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);
+ win.webContents.send('reminders:rewrite',{token:'late-result',id:first.id,revision:first.revision,text:'不应替换的AI内容'});await sleep(100);checks.lateAINeverRewrites=await evaluate(`document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);
+ runtime.upsert({...second,text:'另一件后台更新'});runtime.upsert({text:'新来的紧急事项',important:true,deadline:new Date(Date.now()+30000).toISOString()});await sleep(500);
+ checks.otherTasksDoNotReplace=await evaluate(`document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);checks.urgentQuietIndicator=runtime.state().urgentCount>0;
+ progress('checking-draft-and-lock');
+ await evaluate(`document.querySelector('[data-response="snooze"]').click();`);await waitFor(`!document.getElementById('response-options').hidden`,'time choices');
+ await evaluate(`document.querySelector('[data-duration="custom"]').click();document.getElementById('response-custom').value='2026-11-03T09:15';document.getElementById('response-custom').dispatchEvent(new Event('input'));document.getElementById('preserve-deadline').checked=true;document.getElementById('preserve-deadline').dispatchEvent(new Event('change'));`);await sleep(200);
+ runtime.testPresence('lock');await waitFor(`document.getElementById('bubble').hidden`,'lock hides');checks.lockKeepsCurrent=runtime.state().reading?.id===first.id;
+ runtime.testPresence('test-active');await waitFor(`!document.getElementById('bubble').hidden&&!document.getElementById('response-options').hidden`,'return restores choice');
+ checks.customInputRestored=await evaluate(`document.getElementById('response-duration').value==='custom'&&document.getElementById('response-custom').value==='2026-11-03T09:15'&&document.getElementById('preserve-deadline').checked`);
+ fs.writeFileSync(path.join(out,'reading-draft-restored.png'),(await win.webContents.capturePage()).toPNG());
+ await evaluate(`document.getElementById('response-back').click()`);await sleep(150);checks.backRestoresSameText=await evaluate(`document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);
+ await evaluate(`petQA.openMenu('todos')`);await sleep(100);await evaluate(`petQA.closeMenus()`);await waitFor(`!document.getElementById('bubble').hidden`,'menu resumes');checks.menuRestoresSameText=await evaluate(`document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`);
+ await evaluate(`document.getElementById('bubble').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,button:2}))`);await waitFor(`document.getElementById('bubble').hidden`,'manual dismiss');await sleep(1600);checks.dismissDoesNotAdvance=await evaluate(`document.getElementById('bubble').hidden`);checks.dismissDoesNotComplete=!runtime.engine.list().find(t=>t.id===first.id).done;
+ await evaluate(`document.getElementById('pending-reminders').click()`);await waitFor(`!document.getElementById('bubble').hidden&&document.getElementById('bubble-text').textContent===${JSON.stringify(original)}`,'manual reopen');checks.manualReopensSame=runtime.state().reading?.id===first.id;
+ await evaluate(`document.querySelector('[data-response="complete"]').click()`);await waitFor(`!document.getElementById('bubble').hidden&&!document.getElementById('reminder-actions').hidden&&document.getElementById('bubble-text').textContent!==${JSON.stringify(original)}`,'response advances',8500);
+ checks.responseAdvances=runtime.engine.list().find(t=>t.id===first.id).done&&runtime.state().reading?.id!==first.id;
+ checks.errors=(await evaluate('petQA.snapshot().errors')).length===0;
+ fs.writeFileSync(path.join(out,'reading-response-next.png'),(await win.webContents.capturePage()).toPNG());
+ fs.writeFileSync(path.join(out,process.argv.includes('--reading-fast')?'reading-ui-fast-report.json':'reading-ui-report.json'),JSON.stringify({mode:process.argv.includes('--reading-fast')?'fast':'two-minute',checks,elapsedSeconds:Math.round((Date.now()-startedAt)/1000)},null,2));for(const [name,ok]of Object.entries(checks))assert(ok,'Reading UI check failed: '+name);
+ if(fs.existsSync(path.join(out,'last-error.txt')))fs.unlinkSync(path.join(out,'last-error.txt'));progress('complete');
+};

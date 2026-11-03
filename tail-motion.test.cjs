@@ -1,7 +1,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {profiles,angle}=require('./tail-motion.js'),layout=require('./assets/tails-overlap-v2/layout.json');
-test('nine independently timed tails have visible movement at 70 percent size',()=>{
- assert.equal(profiles.length,9);assert.equal(new Set(profiles.map(p=>p.period)).size,9);
+test('nine complete tails have visible coordinated movement at 70 percent size',()=>{
+ assert.equal(profiles.length,9);assert.equal(new Set(profiles.map(p=>p.period)).size,1);
  const lengthScale=650/1374*210/720;
  for(let i=0;i<9;i++){
   const samples=Array.from({length:1201},(_,t)=>angle(i,{time:t/30}));
@@ -16,4 +16,9 @@ test('tail angles are continuous across seconds and interaction transitions',()=
   const a=angle(i,{time:t}),b=angle(i,{time:t+1/120});assert(Math.abs(a-b)<.002);
   const c=angle(i,{time:t,lift:.51,pet:.1,sway:.02}),d=angle(i,{time:t,lift:.5,pet:.1,sway:.02});assert(Math.abs(c-d)<.001);
  }
+});
+
+test('all nine tails share inward and outward phases with mirrored directions',()=>{
+ for(let t=0;t<30;t+=.05){const normalized=profiles.map((p,i)=>angle(i,{time:t})/p.amplitude/p.direction);assert(normalized.every(x=>Math.abs(x-normalized[0])<1e-12));}
+ assert(profiles.slice(0,5).every(p=>p.direction===1));assert(profiles.slice(5).every(p=>p.direction===-1));
 });
